@@ -214,14 +214,6 @@ class NavigatorSettingTab extends PluginSettingTab {
 		let {containerEl} = this;
 
 		containerEl.empty();
-		new Setting(containerEl)
-			.setName('Auto-reveal files in file explorer')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.autoRevealFileInExplorer)
-				.onChange(async (value) => {
-					this.plugin.settings.autoRevealFileInExplorer = value;
-					await this.plugin.saveSettings();
-				}));
 		
 		new Setting(containerEl)
 			.setName('Today date format')
@@ -238,7 +230,7 @@ class NavigatorSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Separators')
-			.setDesc("Characters used to discriminate the common prefix (if empty, looks for all characters)")
+			.setDesc("Characters used to tokenize the common prefix (if empty, looks for all characters)")
 			.addText(text => text
 				.setPlaceholder(DEFAULT_SETTINGS.commonPrefixSeparators)
 				.setValue(this.plugin.settings.commonPrefixSeparators)
@@ -248,11 +240,21 @@ class NavigatorSettingTab extends PluginSettingTab {
 				}));
 		new Setting(containerEl)
 			.setName('Extend search')
-			.setDesc("Whether to look for the same prefix as the previous/next element if at the first/last element already")
+			.setDesc("Whether to look for the previous/next note if at the first/last note already")
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.commonPrefixExtendSearch)
 				.onChange(async (value) => {
 					this.plugin.settings.commonPrefixExtendSearch = value;
+					await this.plugin.saveSettings();
+				}));
+		
+		containerEl.createEl('h3', {text: 'Extra'});
+		new Setting(containerEl)
+			.setName('Auto-reveal files in file explorer')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.autoRevealFileInExplorer)
+				.onChange(async (value) => {
+					this.plugin.settings.autoRevealFileInExplorer = value;
 					await this.plugin.saveSettings();
 				}));
 	}
