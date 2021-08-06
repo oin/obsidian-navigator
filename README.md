@@ -5,7 +5,7 @@ This is an Obsidian plugin that provides additional commands for navigating your
 Either:
 
  - unzip the released zip file into `<your vault>/.obsidian/plugins/`,
- - or manually copy the released `main.js`, `styles.css`, and `manifest.json` to `<your vault>/.obsidian/plugins/obsidian-navigator`.
+ - or manually copy the released `main.js`, and `manifest.json` to `<your vault>/.obsidian/plugins/obsidian-navigator`.
 
 ## Features
 
@@ -27,8 +27,8 @@ Each of these commands has a variant for each of the following note sort orderin
  - **Today date format**: When looking for today's date in note names, uses this date format (Moment.js)
  - **Notes with same prefix**: Settings pertaining to the _Open first/last note with same prefix_ command
  	- **Separators**: The characters used to determine the common prefix.
- 		- For instance, if ` ` (space) is in the separators, then the common prefix of `About Flowers` and `About Flexitarianism` will be `About`, so the 
- 		- If empty, each character will be a token, so `About Flowers` and `About Flexitarianism` will have 
+ 		- For instance, if ` ` (space) is in the separators, then the common prefix of `About Flowers` and `About Flexitarianism` will be `About`
+ 		- If empty, each character will be a token, so the common prefix of `About Flowers` and `About Flexitarianism` will be `About Fl`, which is not always what you'd want
  	- **Extend search**: When already at the first/last note with the same prefix as the current one, whether to go to the previous/next note to facilitate navigation
 
 ## Status
