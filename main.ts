@@ -1,111 +1,258 @@
-import { App, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, TFile } from 'obsidian';
+import { Moment } from 'moment';
 
-interface MyPluginSettings {
-	mySetting: string;
+interface NavigatorSettings {
+	commonPrefixSeparators: string;
+	commonPrefixExtendSearch: boolean;
+	todayDateFormat: string;
+	autoRevealFileInExplorer: boolean;
+};
+
+const DEFAULT_SETTINGS: NavigatorSettings = {
+	commonPrefixSeparators: '-:_+ /,;?!',
+	commonPrefixExtendSearch: true,
+	todayDateFormat: 'YYYY-MM-DD',
+	autoRevealFileInExplorer: false
+};
+
+function multisplit(str: string, separators: string[]) {
+	if(!separators.length) return str.split('');
+
+	let sep = separators[0];
+	for(let i=1; i<separators.length; ++i) {
+		str = str.split(separators[i]).join(sep);
+	}
+	return str.split(sep);
+}
+function longestCommonPrefixWithSeparators(reference: string, separators: string, arr: string[]) {
+	if(!arr.length) return '';
+
+	let pieces = multisplit(reference, separators.split(''));
+	let lastPrefix = '';
+	for(let i=0; i<pieces.length; ++i) {
+		let prefix = lastPrefix + (i == 0? '' : reference[lastPrefix.length]) + pieces[i];
+		if(arr.filter(str => str !== prefix && str.startsWith(prefix)).length == 0) {
+			return lastPrefix;
+		}
+		lastPrefix = prefix;
+	}
+
+	return reference;
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
+function indexOfPrevNextWithCommonPrefix(files: TFile[], current: number, length: number, settings: NavigatorSettings, isNext: boolean): number {
+	let strFiles = files.map(f => f.basename);
+	let reference = files[current].basename;
+	let prefix = longestCommonPrefixWithSeparators(reference, settings.commonPrefixSeparators, strFiles);
+	if(!prefix.length) {
+		if(settings.commonPrefixExtendSearch && (
+			(!isNext && current > 0)
+			|| (isNext && current + 1 < length)
+			)) {
+			return isNext? (current + 1) : (current - 1);
+		} else {
+			return length;
+		}
+	}
+
+	let filterFn = (file: TFile) => file.basename.startsWith(prefix);
+	let idx = isNext? files.map(filterFn).lastIndexOf(true) : files.findIndex(filterFn);
+	
+	if(idx === current && settings.commonPrefixExtendSearch && (
+		(!isNext && current > 0)
+		|| (isNext && current + 1 < length)
+		)) {
+		return isNext? (current + 1) : (current - 1);
+	}
+
+	return idx;
 }
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+const SORTING_METHODS = [
+	{
+		id: 'alpha',
+		byString: 'name',
+		fn: (a: TFile, b: TFile) => a.basename.localeCompare(b.basename),
+	},
+	{
+		id: 'ctime',
+		byString: 'creation date',
+		fn: (a: TFile, b: TFile) => a.stat.ctime - b.stat.ctime
+	},
+	{
+		id: 'mtime',
+		byString: 'modification date',
+		fn: (a: TFile, b: TFile) => a.stat.mtime - b.stat.mtime
+	},
+];
+
+const MOVEMENT_METHODS = [
+	{
+		id: 'next',
+		whichString: 'next',
+		fn: (files: TFile[], current: number, length: number, settings: NavigatorSettings) => current + 1
+	},
+	{
+		id: 'previous',
+		whichString: 'previous',
+		fn: (files: TFile[], current: number, length: number, settings: NavigatorSettings) => current - 1
+	},
+	{
+		id: 'first',
+		whichString: 'first',
+		fn: (files: TFile[], current: number, length: number, settings: NavigatorSettings) => 0
+	},
+	{
+		id: 'last',
+		whichString: 'last',
+		fn: (files: TFile[], current: number, length: number, settings: NavigatorSettings) => length - 1
+	},
+	{
+		id: 'today-first',
+		whichString: "first with today in name",
+		fn: (files: TFile[], current: number, length: number, settings: NavigatorSettings) => {
+			let todaystr = window.moment(new Date()).format(settings.todayDateFormat);
+			return files.findIndex(file => file.basename.includes(todaystr));
+		}
+	},
+	{
+		id: 'today-last',
+		whichString: "last with today in name",
+		fn: (files: TFile[], current: number, length: number, settings: NavigatorSettings) => {
+			let todaystr = window.moment(new Date()).format(settings.todayDateFormat);
+			return files.map(file => file.basename.includes(todaystr)).lastIndexOf(true);
+		}
+	},
+	{
+		id: 'commonprefix-first',
+		whichString: "first with same prefix",
+		fn: (files: TFile[], current: number, length: number, settings: NavigatorSettings) => indexOfPrevNextWithCommonPrefix(files, current, length, settings, false)
+	},
+	{
+		id: 'commonprefix-last',
+		whichString: "last with same prefix",
+		fn: (files: TFile[], current: number, length: number, settings: NavigatorSettings) => indexOfPrevNextWithCommonPrefix(files, current, length, settings, true)
+	},
+];
+
+export default class NavigatorPlugin extends Plugin {
+	settings: NavigatorSettings;
 
 	async onload() {
-		console.log('loading plugin');
+		console.log('Loading Obsidian Navigator');
 
 		await this.loadSettings();
 
-		this.addRibbonIcon('dice', 'Sample Plugin', () => {
-			new Notice('This is a notice!');
+		// Add a settings tab
+		this.addSettingTab(new NavigatorSettingTab(this.app, this));
+
+		// Create all possible commands
+		SORTING_METHODS.forEach(sortingMethod => {
+			MOVEMENT_METHODS.forEach(movementMethod => {
+				this.addCommand({
+					id: 'navigator-folder-' + movementMethod.id + '-' + sortingMethod.id,
+					name: 'By ' + sortingMethod.byString + ': Open ' + movementMethod.whichString + ' in folder',
+					checkCallback: (checking: boolean) => this.cmdOpenNoteInFolder(checking, sortingMethod.fn, movementMethod.fn)
+				});
+			});
 		});
 
-		this.addStatusBarItem().setText('Status Bar Text');
-
-		this.addCommand({
-			id: 'open-sample-modal',
-			name: 'Open Sample Modal',
-			// callback: () => {
-			// 	console.log('Simple Callback');
-			// },
-			checkCallback: (checking: boolean) => {
-				let leaf = this.app.workspace.activeLeaf;
-				if (leaf) {
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-					return true;
-				}
-				return false;
+		//TODO: remove this when shichongrui/obsidian-reveal-active-file wakes up
+		this.app.workspace.on('file-open', () => {
+			if(this.settings.autoRevealFileInExplorer) {
+				this.app.commands.executeCommandById('file-explorer:reveal-active-file');
 			}
 		});
-
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		this.registerCodeMirror((cm: CodeMirror.Editor) => {
-			console.log('codemirror', cm);
-		});
-
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
-		});
-
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
 	}
 
 	onunload() {
-		console.log('unloading plugin');
+		console.log('Unloading Obisdian Navigator');
 	}
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
-
 	async saveSettings() {
 		await this.saveData(this.settings);
 	}
+
+	cmdOpenNoteInFolder(checking: boolean, sortingFn: (a: TFile, b: TFile) => number, movementFn: (files: TFile[], current: number, length: number, settings: NavigatorSettings) => number) {
+		let leaf = this.app.workspace.activeLeaf;
+		if(!leaf) return false;
+		let file = this.app.workspace.getActiveFile();
+		if(!file) return false;
+		let folder = file.parent;
+		if(!folder) return false;
+
+		if(!checking) {
+			let files = folder.children.filter(file => {
+				if(!(file instanceof TFile)) return false;
+				let f = file as TFile;
+				if(f.extension !== 'md') return false;
+				return true;
+			}) as TFile[];
+			files = files.sort(sortingFn);
+			let idx = files.indexOf(file);
+			idx = movementFn(files, idx, files.length, this.settings);
+			if(idx < 0 || idx >= files.length) return true;
+			leaf.openFile(files[idx]);
+		}
+
+		return true;
+	}
 }
 
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
+class NavigatorSettingTab extends PluginSettingTab {
+	plugin: NavigatorPlugin;
 
-	onOpen() {
-		let {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		let {contentEl} = this;
-		contentEl.empty();
-	}
-}
-
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
-
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: NavigatorPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
 
-	display(): void {
+	display() : void {
 		let {containerEl} = this;
 
 		containerEl.empty();
-
-		containerEl.createEl('h2', {text: 'Settings for my awesome plugin.'});
+		new Setting(containerEl)
+			.setName('Auto-reveal files in file explorer')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.autoRevealFileInExplorer)
+				.onChange(async (value) => {
+					this.plugin.settings.autoRevealFileInExplorer = value;
+					await this.plugin.saveSettings();
+				}));
+		
+		new Setting(containerEl)
+			.setName('Today date format')
+			.setDesc("Will look for this date format in the title when navigating Today notes")
+			.addMomentFormat(mfmt => mfmt
+				.setDefaultFormat(DEFAULT_SETTINGS.todayDateFormat)
+				.setValue(this.plugin.settings.todayDateFormat)
+				.onChange(async (value) => {
+					this.plugin.settings.todayDateFormat = value;
+					await this.plugin.saveSettings();
+				}));
+		
+		containerEl.createEl('h3', {text: 'Notes with same prefix'});
 
 		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
+			.setName('Separators')
+			.setDesc("Characters used to discriminate the common prefix (if empty, looks for all characters)")
 			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue('')
+				.setPlaceholder(DEFAULT_SETTINGS.commonPrefixSeparators)
+				.setValue(this.plugin.settings.commonPrefixSeparators)
 				.onChange(async (value) => {
-					console.log('Secret: ' + value);
-					this.plugin.settings.mySetting = value;
+					this.plugin.settings.commonPrefixSeparators = value;
+					await this.plugin.saveSettings();
+				}));
+		new Setting(containerEl)
+			.setName('Extend search')
+			.setDesc("Whether to look for the same prefix as the previous/next element if at the first/last element already")
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.commonPrefixExtendSearch)
+				.onChange(async (value) => {
+					this.plugin.settings.commonPrefixExtendSearch = value;
 					await this.plugin.saveSettings();
 				}));
 	}
