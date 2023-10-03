@@ -1,10 +1,8 @@
 {
-	"id": "obsidian-navigator",
+	"id": "oin-navigator",
 	"name": "Navigator",
-	"version": "1.0.0",
-	"minAppVersion": "0.12.12",
-	"description": "More commands for navigation",
-	"author": "join",
-	"authorUrl": "https://oin.name",
-	"isDesktopOnly": true
+	"version": "0.1.0",
+	"minAppVersion": "1.14.11",
+	"description": "Commands for folder-based navigation",
+	"author": "join"
 }

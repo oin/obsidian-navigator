@@ -1,14 +1,7 @@
-# Intellij
-*.iml
-.idea
-
-# npm
+build
+.vscode
 node_modules
-package-lock.json
-
-# build
-main.js
-*.js.map
-
-# obsidian
+*.map
 data.json
+package-lock.json
+.DS_Store
