@@ -26,7 +26,7 @@ export default class NavigatorPlugin extends Plugin {
 		// Create Last/New commands
 		for(let pattern of this.settings.commandPatterns) {
 			this.addCommand({
-				id: 'navigator-' + pattern.id,
+				id: 'navigator-lastnew-' + pattern.id,
 				name: 'Last/New ' + pattern.name,
 				callback: () => {
 					let p = commandPatternExpand(pattern.pattern, this.settings);
@@ -34,7 +34,7 @@ export default class NavigatorPlugin extends Plugin {
 				}
 			});
 			this.addCommand({
-				id: 'navigator-' + pattern.id,
+				id: 'navigator-last-' + pattern.id,
 				name: 'Last ' + pattern.name,
 				callback: () => {
 					this.cmdOpenLastFileWithPattern(pattern);
