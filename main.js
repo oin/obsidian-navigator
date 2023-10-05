@@ -92,10 +92,10 @@ function todayStr(format) {
 }
 function filesWithCommandPattern(files, pattern, dateFormat) {
   const decomposedPattern = pattern.split("#");
-  if (decomposedPattern.length < 2)
+  if (decomposedPattern.length < 1)
     return [];
   const patternPrefix = decomposedPattern[0];
-  const patternSuffix = decomposedPattern[1];
+  const patternSuffix = decomposedPattern.length > 1 ? decomposedPattern[1] : "";
   return files.filter((file) => {
     const m = window.moment(file.path, dateFormat);
     if (!m.isValid())
@@ -104,7 +104,7 @@ function filesWithCommandPattern(files, pattern, dateFormat) {
     if (unused.length != 2)
       return false;
     const [prefix, suffix] = unused;
-    return prefix.endsWith(patternPrefix) && suffix == patternSuffix;
+    return prefix.endsWith(patternPrefix) && suffix.startsWith(patternSuffix);
   });
 }
 function commandPatternExpand(pattern, settings) {
@@ -333,7 +333,7 @@ var NavigatorPlugin = class extends import_obsidian2.Plugin {
     let filesWithPattern = filesWithCommandPattern(files, pattern.pattern, this.settings.todayDateFormat);
     if (!filesWithPattern.length)
       return;
-    filesWithPattern = filesWithPattern.sort((a, b) => a.basename.localeCompare(b.basename));
+    filesWithPattern = filesWithPattern.sort((a, b) => b.basename.localeCompare(a.basename));
     this.app.workspace.openLinkText(filesWithPattern[0].path, "", false);
   }
   async openOrCreateFile(path) {

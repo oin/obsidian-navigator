@@ -76,11 +76,11 @@ export function todayStr(format?: string) {
 }
 
 export function filesWithCommandPattern(files: TFile[], pattern: string, dateFormat: string): TFile[] {
-	const decomposedPattern = pattern.split('#')
-	if(decomposedPattern.length < 2) return [];
+	const decomposedPattern = pattern.split('#');
+	if(decomposedPattern.length < 1) return [];
 
 	const patternPrefix = decomposedPattern[0];
-	const patternSuffix = decomposedPattern[1];
+	const patternSuffix = decomposedPattern.length > 1? decomposedPattern[1] : "";
     return files.filter((file) => {
 		const m = window.moment(file.path, dateFormat);
 		if(!m.isValid()) return false;
@@ -88,7 +88,7 @@ export function filesWithCommandPattern(files: TFile[], pattern: string, dateFor
 		if(unused.length != 2) return false
 		;
 		const [prefix, suffix] = unused;
-        return prefix.endsWith(patternPrefix) && suffix == patternSuffix;
+        return prefix.endsWith(patternPrefix) && suffix.startsWith(patternSuffix);
     });
 }
 
