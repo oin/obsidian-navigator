@@ -81,7 +81,7 @@ export default class NavigatorPlugin extends Plugin {
 		let filesWithPattern = filesWithCommandPattern(files, pattern.pattern, this.settings.todayDateFormat);
 		if(!filesWithPattern.length) return;
 
-		filesWithPattern = filesWithPattern.sort((a, b) => b.stat.mtime - a.stat.mtime);
+		filesWithPattern = filesWithPattern.sort((a, b) => a.basename.localeCompare(b.basename));
 		this.app.workspace.openLinkText(filesWithPattern[0].path, '', false);
 	}
 
